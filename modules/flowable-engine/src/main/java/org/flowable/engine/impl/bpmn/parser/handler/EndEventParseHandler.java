@@ -13,14 +13,7 @@
 package org.flowable.engine.impl.bpmn.parser.handler;
 
 import org.apache.commons.lang3.StringUtils;
-import org.flowable.bpmn.model.BaseElement;
-import org.flowable.bpmn.model.CancelEventDefinition;
-import org.flowable.bpmn.model.EndEvent;
-import org.flowable.bpmn.model.ErrorEventDefinition;
-import org.flowable.bpmn.model.Escalation;
-import org.flowable.bpmn.model.EscalationEventDefinition;
-import org.flowable.bpmn.model.EventDefinition;
-import org.flowable.bpmn.model.TerminateEventDefinition;
+import org.flowable.bpmn.model.*;
 import org.flowable.engine.impl.bpmn.parser.BpmnParse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -71,6 +64,10 @@ public class EndEventParseHandler extends AbstractActivityBpmnParseHandler<EndEv
                 endEvent.setBehavior(bpmnParse.getActivityBehaviorFactory().createTerminateEndEventActivityBehavior(endEvent));
             } else if (eventDefinition instanceof CancelEventDefinition) {
                 endEvent.setBehavior(bpmnParse.getActivityBehaviorFactory().createCancelEndEventActivityBehavior(endEvent));
+            } else if (eventDefinition instanceof SignalEventDefinition) {
+                SignalEventDefinition signalEventDefinition = (SignalEventDefinition) eventDefinition;
+                endEvent.setBehavior(bpmnParse.getActivityBehaviorFactory().createSignalEndEventActivityBehavior(endEvent, signalEventDefinition,
+                        bpmnParse.getBpmnModel().getSignal(signalEventDefinition.getSignalRef())));
             } else {
                 endEvent.setBehavior(bpmnParse.getActivityBehaviorFactory().createNoneEndEventActivityBehavior(endEvent));
             }

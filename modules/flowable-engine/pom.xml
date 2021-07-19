@@ -14,6 +14,12 @@
     </parent>
 
     <dependencies>
+        <!-- 可以采用MySQL存储，也可以采用H2，看自己的需要 -->
+        <dependency>
+            <groupId>mysql</groupId>
+            <artifactId>mysql-connector-java</artifactId>
+            <version>8.0.17</version>
+        </dependency>
         <dependency>
             <groupId>org.flowable</groupId>
             <artifactId>flowable-bpmn-converter</artifactId>
