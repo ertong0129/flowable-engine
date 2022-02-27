@@ -22,6 +22,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.flowable.common.engine.impl.AbstractEngineConfiguration;
 import org.flowable.engine.IdentityService;
 import org.flowable.engine.impl.test.PluggableFlowableTestCase;
 import org.flowable.engine.repository.ProcessDefinition;
@@ -352,9 +353,12 @@ public class StartAuthorizationTest extends PluggableFlowableTestCase {
             assertThat(repositoryService.createProcessDefinitionQuery().startableByUserOrGroups("user1", Collections.singletonList("group3")).list())
                 .extracting(ProcessDefinition::getKey)
                 .containsExactlyInAnyOrder("process2", "process3", "process4");
-            
-            Set<String> testGroups = new HashSet<>(2100);
-            for (int i = 0; i < 2100; i++) {
+
+            // SQL Server has a limit of 2100 on how many parameters a query might have
+            int maxGroups = AbstractEngineConfiguration.DATABASE_TYPE_MSSQL.equals(processEngineConfiguration.getDatabaseType()) ? 2050 : 2100;
+
+            Set<String> testGroups = new HashSet<>(maxGroups);
+            for (int i = 0; i < maxGroups; i++) {
                 testGroups.add("groupa" + i);
             }
             
@@ -368,6 +372,41 @@ public class StartAuthorizationTest extends PluggableFlowableTestCase {
             assertThat(processDefinitionQuery.count()).isEqualTo(1);
             assertThat(processDefinitionQuery.list()).hasSize(1);
 
+        } finally {
+            tearDownUsersAndGroups();
+        }
+    }
+
+    @Test
+    @Deployment
+    public void testExpressionsInCandidateStarters() throws Exception {
+
+        setUpUsersAndGroups();
+
+        try {
+            //test simple expression e.g. "${"user1"}"
+            ProcessDefinition latestProcessDef = repositoryService.createProcessDefinitionQuery().processDefinitionKey("ExpressionProcess1").singleResult();
+            assertThat(latestProcessDef).isNotNull();
+            List<IdentityLink> links = repositoryService.getIdentityLinksForProcessDefinition(latestProcessDef.getId());
+            assertThat(links)
+                    .extracting(IdentityLink::getUserId, IdentityLink::getGroupId)
+                    .containsExactlyInAnyOrder(
+                            tuple("user1", null),
+                            tuple(null, "group3")
+                    );
+
+            //test comma-seperated candidates inside expression e.g. "${"user1,user2"}"
+            latestProcessDef = repositoryService.createProcessDefinitionQuery().processDefinitionKey("ExpressionProcess2").singleResult();
+            assertThat(latestProcessDef).isNotNull();
+            links = repositoryService.getIdentityLinksForProcessDefinition(latestProcessDef.getId());
+            assertThat(links)
+                    .extracting(IdentityLink::getUserId, IdentityLink::getGroupId)
+                    .containsExactlyInAnyOrder(
+                            tuple("user1", null),
+                            tuple("user2", null),
+                            tuple(null, "group2"),
+                            tuple(null, "group3")
+                    );
         } finally {
             tearDownUsersAndGroups();
         }

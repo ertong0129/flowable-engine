@@ -27,6 +27,7 @@ import org.flowable.cmmn.api.repository.CaseDefinitionQuery;
 import org.flowable.cmmn.api.runtime.CaseInstance;
 import org.flowable.cmmn.engine.test.CmmnDeployment;
 import org.flowable.cmmn.engine.test.FlowableCmmnTestCase;
+import org.flowable.common.engine.impl.AbstractEngineConfiguration;
 import org.flowable.common.engine.impl.identity.Authentication;
 import org.flowable.common.engine.impl.interceptor.EngineConfigurationConstants;
 import org.flowable.identitylink.api.IdentityLink;
@@ -289,9 +290,12 @@ public class StartAuthorizationTest extends FlowableCmmnTestCase {
             assertThat(cmmnRepositoryService.createCaseDefinitionQuery().startableByUserOrGroups("user1", Collections.singletonList("group3")).list())
                     .extracting(CaseDefinition::getKey)
                     .containsExactlyInAnyOrder("case2", "case3");
-            
-            Set<String> testGroups = new HashSet<>(2100);
-            for (int i = 0; i < 2100; i++) {
+
+            // SQL Server has a limit of 2100 on how many parameters a query might have
+            int maxGroups = AbstractEngineConfiguration.DATABASE_TYPE_MSSQL.equals(cmmnEngineConfiguration.getDatabaseType()) ? 2050 : 2100;
+
+            Set<String> testGroups = new HashSet<>(maxGroups);
+            for (int i = 0; i < maxGroups; i++) {
                 testGroups.add("groupa" + i);
             }
             
@@ -307,6 +311,38 @@ public class StartAuthorizationTest extends FlowableCmmnTestCase {
 
         } finally {
             tearDownUsersAndGroups();
+        }
+    }
+
+    @Test
+    @CmmnDeployment
+    public void testExpressionsInCandidateStarters() throws Exception {
+
+        setupUsersAndGroups();
+
+        try {
+            //test simple expression e.g. "${"user1"}"
+            CaseDefinition latestCaseDef = cmmnRepositoryService.createCaseDefinitionQuery().caseDefinitionKey("expressionCase1").singleResult();
+            assertThat(latestCaseDef).isNotNull();
+            List<IdentityLink> links = cmmnRepositoryService.getIdentityLinksForCaseDefinition(latestCaseDef.getId());
+            assertThat(links).hasSize(2);
+            assertThat(extractProperty("groupId").from(links))
+                    .contains("group3");
+            assertThat(extractProperty("userId").from(links))
+                    .contains("user1");
+
+            //test comma-seperated candidates inside expression e.g. "${"user1,user2"}"
+            latestCaseDef = cmmnRepositoryService.createCaseDefinitionQuery().caseDefinitionKey("expressionCase2").singleResult();
+            assertThat(latestCaseDef).isNotNull();
+            links = cmmnRepositoryService.getIdentityLinksForCaseDefinition(latestCaseDef.getId());
+            assertThat(links).hasSize(4);
+            assertThat(extractProperty("groupId").from(links))
+                    .contains("group2", "group3");
+            assertThat(extractProperty("userId").from(links))
+                    .contains("user1", "user2");
+        } finally {
+            tearDownUsersAndGroups();
+            Authentication.setAuthenticatedUserId(null);
         }
     }
 

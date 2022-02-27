@@ -40,6 +40,8 @@ public class CommandContextInterceptor extends AbstractCommandInterceptor {
     protected ObjectMapper objectMapper;
     protected Map<String, AbstractEngineConfiguration> engineConfigurations = new HashMap<>();
 
+    protected String engineCfgKey;
+
     public CommandContextInterceptor() {
     }
 
@@ -57,8 +59,22 @@ public class CommandContextInterceptor extends AbstractCommandInterceptor {
     public <T> T execute(CommandConfig config, Command<T> command, CommandExecutor commandExecutor) {
         CommandContext commandContext = Context.getCommandContext();
 
+        /*
+         * This flag indicates whether the context is reused for the execution of the current command.
+         * If a valid command context exists, this means a nested service call is being executed.
+         * If so, this flag will change to 'true', with the purpose of closing the command context in the finally block.
+         */
         boolean contextReused = false;
-        
+
+        /*
+         * Commands can execute service calls, even deeply nested service calls.
+         * This flag stores the 'reused' flag on the command context as it was when starting to execute the command.
+         * For a nested command, this will be 'true'. Only for the root command context usage, this will be false.
+         * When the nested command is done, the original state is restored, which allows to detect at the CommandInvoker
+         * level which command context is the actual root.
+         */
+        boolean originalContextReusedState = false;
+
         // We need to check the exception, because the transaction can be in a
         // rollback state, and some other command is being fired to compensate (eg. decrementing job retries)
         if (!config.isContextReusePossible() || commandContext == null || commandContext.getException() != null) {
@@ -73,11 +89,17 @@ public class CommandContextInterceptor extends AbstractCommandInterceptor {
         } else {
             LOGGER.debug("Valid context found. Reusing it for the current command '{}'", command.getClass().getCanonicalName());
             contextReused = true;
+            originalContextReusedState = commandContext.isReused();
             commandContext.setReused(true);
         }
 
+
         try {
-            // Push on stack
+            // Push the current engine configuration key to a stack
+            // shared between nested calls that reuse the command context
+            commandContext.pushEngineCfgToStack(engineCfgKey);
+
+            // Push on command stack
             Context.setCommandContext(commandContext);
 
             return next.execute(config, command, commandExecutor);
@@ -91,9 +113,11 @@ public class CommandContextInterceptor extends AbstractCommandInterceptor {
                 if (!contextReused) {
                     commandContext.close();
                 }
+                commandContext.setReused(originalContextReusedState);
 
             } finally {
-                // Pop from stack
+                // Pop from stacks
+                commandContext.popEngineCfgStack();
                 Context.removeCommandContext();
             }
         }
@@ -133,5 +157,11 @@ public class CommandContextInterceptor extends AbstractCommandInterceptor {
     public void setEngineConfigurations(Map<String, AbstractEngineConfiguration> engineConfigurations) {
         this.engineConfigurations = engineConfigurations;
     }
-    
+
+    public String getEngineCfgKey() {
+        return engineCfgKey;
+    }
+    public void setEngineCfgKey(String engineCfgKey) {
+        this.engineCfgKey = engineCfgKey;
+    }
 }

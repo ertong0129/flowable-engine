@@ -31,8 +31,8 @@ import org.flowable.engine.runtime.ProcessInstance;
 public interface ExecutionEntityManager extends EntityManager<ExecutionEntity> {
 
     ExecutionEntity createProcessInstanceExecution(ProcessDefinition processDefinition, String predefinedProcessInstanceId,
-                    String businessKey, String processInstanceName, String callbackId, String callbackType, String referenceId, String referenceType,
-                    String propagatedStageInstanceId, String tenantId, String initiatorVariableName, String startActivityId);
+            String businessKey, String businessStatus, String processInstanceName, String callbackId, String callbackType, String referenceId,
+            String referenceType, String propagatedStageInstanceId, String tenantId, String initiatorVariableName, String startActivityId);
 
     ExecutionEntity createChildExecution(ExecutionEntity parentExecutionEntity);
 
@@ -72,6 +72,8 @@ public interface ExecutionEntityManager extends EntityManager<ExecutionEntity> {
 
     long findExecutionCountByNativeQuery(Map<String, Object> parameterMap);
 
+    long countActiveExecutionsByParentId(String parentId);
+
     /**
      * Returns all child executions of a given {@link ExecutionEntity}. 
      * In the list, child executions will be behind parent executions.
@@ -86,6 +88,8 @@ public interface ExecutionEntityManager extends EntityManager<ExecutionEntity> {
     void updateExecutionTenantIdForDeployment(String deploymentId, String newTenantId);
 
     String updateProcessInstanceBusinessKey(ExecutionEntity executionEntity, String businessKey);
+    
+    String updateProcessInstanceBusinessStatus(ExecutionEntity executionEntity, String businessStatus);
 
     void deleteProcessInstancesByProcessDefinition(String processDefinitionId, String deleteReason, boolean cascade);
     

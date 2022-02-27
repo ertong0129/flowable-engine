@@ -263,6 +263,10 @@ public abstract class AbstractFlowableTestCase extends AbstractTestCase {
     public void waitForJobExecutorToProcessAllJobsAndExecutableTimerJobs(long maxMillisToWait, long intervalMillis) {
         JobTestHelper.waitForJobExecutorToProcessAllJobsAndExecutableTimerJobs(processEngineConfiguration, managementService, maxMillisToWait, intervalMillis);
     }
+
+    public void waitForJobExecutorToProcessAllJobsAndAllTimerJobs(long maxMillisToWait, long intervalMillis) {
+        JobTestHelper.waitForJobExecutorToProcessAllJobsAndExecutableTimerJobs(processEngineConfiguration, managementService, maxMillisToWait, intervalMillis);
+    }
     
     public void waitForJobExecutorToProcessAllHistoryJobs(long maxMillisToWait, long intervalMillis) {
         HistoryTestHelper.waitForJobExecutorToProcessAllHistoryJobs(processEngineConfiguration, managementService, maxMillisToWait, intervalMillis);
@@ -396,6 +400,7 @@ public abstract class AbstractFlowableTestCase extends AbstractTestCase {
     
     protected void deleteDeployments() {
         boolean isAsyncHistoryEnabled = processEngineConfiguration.isAsyncHistoryEnabled();
+
         HistoryManager asyncHistoryManager = null;
         if (isAsyncHistoryEnabled) {
             processEngineConfiguration.setAsyncHistoryEnabled(false);
